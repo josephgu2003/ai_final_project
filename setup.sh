@@ -19,4 +19,4 @@ conda create -n cs4100 python=3.12
 
 source activate cs4100
 
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip install torch torchvision torchaudio timm opencv-python termcolor yacs pyyaml scipy numpy --index-url https://download.pytorch.org/whl/cu118
