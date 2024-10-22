@@ -19,3 +19,4 @@ source activate cs4100
 echo 'btw, gpu:t4:1 seems to work if the v100-sxm2 is not available'
 
 python3 -c "import torch; print(torch.cuda.is_available()); x = torch.zeros(1).cuda(); print(x)"
+python3 -u train.py
