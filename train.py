@@ -1,4 +1,4 @@
-from dataloader import BatchedImages, LabeledImage
+from dataloader import BatchedImages, LabeledImage, NYUv2Dataset
 from opt import config_parser
 import torch
 import random, os
@@ -71,7 +71,7 @@ def collate_fn(labeled_imgs: list[LabeledImage]):
     return batched_imgs
 
 def create_dataloader(args):
-    dataset = CustomImageDataset()
+    dataset = NYUv2Dataset(mat_file_path='nyu_depth_v2_labeled.mat')
     train_dataloader = DataLoader(dataset, batch_size=args.bs, shuffle=True, collate_fn=collate_fn)
     val_dataloader = DataLoader(dataset, batch_size=args.bs, shuffle=False, collate_fn=collate_fn)
     return train_dataloader, val_dataloader
