@@ -1,4 +1,5 @@
 from dataloader import BatchedImages, LabeledImage, NYUv2Dataset
+from model import DepthAndUncertaintyModel
 from opt import config_parser
 import torch
 import random, os
@@ -43,10 +44,17 @@ def set_random_seed(seed):
 
 def loss_func(x, y):
     return torch.mean(torch.square(x-y))
+
+def uncertainty_loss(x, y):
+    prediction = x[:,:,:,0:1]
+    variance = x[:,:,:,1:2]
+    y = y.permute(0,2,3,1)
+    return torch.mean(0.5/variance*torch.square(y-prediction)+0.5*torch.log(variance))
+
     
 def train_epoch(args, model, optimizer, dataloader, i):
     for i, batch in enumerate(dataloader):
-        loss = loss_func(model(batch), batch.label)
+        loss = uncertainty_loss(model(batch), batch.label)
         
         optimizer.zero_grad()
         loss.backward()
@@ -84,7 +92,7 @@ def run_training(args):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(device)
     
-    model = CustomModel()
+    model = DepthAndUncertaintyModel()
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     train_dataloader, val_dataloader = create_dataloader(args)
     
