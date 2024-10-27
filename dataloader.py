@@ -38,7 +38,7 @@ class NYUv2Dataset(Dataset):
         label = Image.fromarray(np.float32(label))
 
         rgb_tensor = ToTensor()(rgb_image)  # Shape: (3, H, W)
-        label_tensor = ToTensor()(label).unsqueeze(0)  # Shape: (1, H, W)
+        label_tensor = ToTensor()(label)  # Shape: (1, H, W)
 
         return LabeledImage(
             rgb=rgb_tensor,
