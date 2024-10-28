@@ -4,7 +4,7 @@
 #SBATCH --ntasks=1
 #SBATCH --time=01:00:00
 #SBATCH --partition=gpu
-#SBATCH --gres=gpu:v100-sxm2:1
+#SBATCH --gres=gpu:t4:1
 #SBATCH --cpus-per-task=12
 #SBATCH --mem=12GB
 
@@ -18,5 +18,9 @@ export CUDA_VISIBLE_DEVICES=0
 source activate cs4100
 echo 'btw, gpu:t4:1 seems to work if the v100-sxm2 is not available'
 
-python3 -c "import torch; print(torch.cuda.is_available()); x = torch.zeros(1).cuda(); print(x)"
-python3 -u train.py
+base_dir=./log
+exp_name=exp_bs_4
+folder=${base_dir}/${exp_name}
+mkdir $folder
+
+python -u train.py --base_dir $base_dir --exp_name $exp_name --bs 4 | tee $folder/log_stdout.txt # use this to log extra information not handled otherwise 
