@@ -6,6 +6,7 @@ import random, os
 from torch.utils.data import Dataset, DataLoader
 import yaml
 from logger import get_git_revision_short_hash, get_git_status, get_git_diff, init_log, write_to_log
+from load_model import build_model
    
 def set_random_seed(seed):
     torch.manual_seed(seed)
@@ -21,7 +22,7 @@ def uncertainty_loss(x, y):
     prediction = x[:,:,:,0:1]
     variance = x[:,:,:,1:2]
     y = y.permute(0,2,3,1)
-    return torch.mean(0.5/variance*torch.square(y-prediction)+0.5*torch.log(variance))
+    return torch.mean(0.5 * torch.exp(-variance) * torch.square(y - prediction) + 0.5 * variance)
 
     
 def train_epoch(args, model, optimizer, dataloader, i, device):
@@ -32,10 +33,9 @@ def train_epoch(args, model, optimizer, dataloader, i, device):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
-        write_to_log(f"TRAIN LOSS: {loss.item()}")
-        
-        # log the loss
+  
+        if i % args.print_every == 0:
+            write_to_log(f"TRAIN LOSS: {loss.item()}")
     
 def eval_epoch(args, model, dataloader, i, device):
     losses = []
@@ -88,8 +88,10 @@ def run_training(args):
         f.write('\n')
         f.write(get_git_revision_short_hash())
 
-    model = DepthAndUncertaintyModel()
-    model = model.to(device)
+    model, errors = build_model(args, device)
+
+    write_to_log(str(errors))
+
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     train_dataloader, val_dataloader = create_dataloader(args)
     

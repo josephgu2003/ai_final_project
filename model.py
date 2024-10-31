@@ -7,7 +7,7 @@ class DepthAndUncertaintyModel(torch.nn.Module):
     def __init__(self):
         super().__init__()
          # args from https://github.com/SwinTransformer/Swin-Transformer-Semantic-Segmentation/blob/main/configs/swin/upernet_swin_tiny_patch4_window7_512x512_160k_ade20k.py
-        self.swint = SwinTransformer(
+        self.backbone = SwinTransformer(
             embed_dim=96,
             depths=[2, 2, 6, 2],
             num_heads=[3, 6, 12, 24],
@@ -21,7 +21,7 @@ class DepthAndUncertaintyModel(torch.nn.Module):
         self.layer_one = torch.nn.Linear(768,2)
     
     def forward(self, x: BatchedImages):
-        x = self.swint(x.rgb)
+        x = self.backbone(x.rgb)
         x = x[-1] # torch.Size([16, 768, 20, 15])
         x= torch.nn.functional.interpolate(x, mode="bilinear", size=IMG_SIZE)
         x = x.permute(0,2,3,1)
