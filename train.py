@@ -54,9 +54,10 @@ def collate_fn(labeled_imgs: list[LabeledImage]):
     return batched_imgs
 
 def create_dataloader(args):
-    dataset = NYUv2Dataset(mat_file_path='nyu_depth_v2_labeled.mat')
-    train_dataloader = DataLoader(dataset, batch_size=args.bs, shuffle=True, collate_fn=collate_fn, num_workers=args.num_workers)
-    val_dataloader = DataLoader(dataset, batch_size=args.bs, shuffle=False, collate_fn=collate_fn, num_workers=args.num_workers)
+    train_dataset = NYUv2Dataset(mat_file_path='nyu_depth_v2_labeled.mat', splits_path='nyuv2_splits.mat', mode='train')
+    test_dataset = NYUv2Dataset(mat_file_path='nyu_depth_v2_labeled.mat', splits_path='nyuv2_splits.mat', mode='test')
+    train_dataloader = DataLoader(train_dataset, batch_size=args.bs, shuffle=True, collate_fn=collate_fn, num_workers=args.num_workers)
+    val_dataloader = DataLoader(test_dataset, batch_size=args.bs, shuffle=False, collate_fn=collate_fn, num_workers=args.num_workers)
     return train_dataloader, val_dataloader
 
 def run_training(args):
