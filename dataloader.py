@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import h5py
 import torch
 from torch.utils.data import Dataset, DataLoader
-from torchvision.transforms import ToTensor, RandomHorizontalFlip
+from torchvision.transforms import ToTensor, RandomHorizontalFlip, Compose
 from PIL import Image
 import numpy as np
 import scipy.io as io
@@ -24,12 +24,13 @@ class NYUv2Dataset(Dataset):
         
         if mode is 'train':
             indices = io.loadmat(splits_path)['trainNdxs']
-            self.transform = torch.nn.Sequential(RandomHorizontalFlip(p=0.5), ToTensor())
+            self.transform = Compose([RandomHorizontalFlip(p=0.5), ToTensor()])
         elif mode is 'test':
             indices = io.loadmat(splits_path)['testNdxs']
-            self.transform = torch.nn.Sequential(ToTensor())
+            self.transform = Compose([ToTensor()])
         else: 
             raise ValueError()
+        indices = indices.flatten() - 1
 
         self.rgb_images = np.array(self.data['images'])[indices]
         self.labels = np.array(self.data['depths'])[indices]

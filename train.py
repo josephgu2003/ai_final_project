@@ -22,13 +22,14 @@ def uncertainty_loss(x, y):
     prediction = x[:,:,:,0:1]
     variance = x[:,:,:,1:2]
     y = y.permute(0,2,3,1)
-    return torch.mean(0.5 * torch.exp(-variance) * torch.square(y - prediction) + 0.5 * variance)
+    mse = torch.square(y - prediction)
+    return torch.mean(0.5 * torch.exp(-variance) * mse + 0.5 * variance), torch.mean(mse)
 
     
 def train_epoch(args, model, optimizer, dataloader, i, device):
     for i, batch in enumerate(dataloader):
         batch = BatchedImages(batch.rgb.to(device), batch.label.to(device))
-        loss = uncertainty_loss(model(batch), batch.label)
+        loss, mse = uncertainty_loss(model(batch), batch.label)
         
         optimizer.zero_grad()
         loss.backward()
@@ -36,16 +37,20 @@ def train_epoch(args, model, optimizer, dataloader, i, device):
   
         if i % args.print_every == 0:
             write_to_log(f"TRAIN LOSS: {loss.item()}")
+            write_to_log(f"TRAIN MSE: {mse.item()}")
     
 def eval_epoch(args, model, dataloader, i, device):
     losses = []
+    mses = []
     for i, batch in enumerate(dataloader):
         with torch.no_grad():
             batch = BatchedImages(batch.rgb.to(device), batch.label.to(device))
-            loss = uncertainty_loss(model(batch), batch.label)
+            loss, mse = uncertainty_loss(model(batch), batch.label)
             losses.append(loss)
+            mses.append(mse)
 
     write_to_log(f"VAL LOSS: {torch.mean(torch.stack(losses))}")
+    write_to_log(f"VAL MSE: {torch.mean(torch.stack(mses))}")
 
 def collate_fn(labeled_imgs: list[LabeledImage]):
     batched_imgs = BatchedImages(
