@@ -4,3 +4,5 @@
 .idea
 *.mat
 log
+models
+slurm*

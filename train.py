@@ -6,6 +6,7 @@ import random, os
 from torch.utils.data import Dataset, DataLoader
 import yaml
 from logger import get_git_revision_short_hash, get_git_status, get_git_diff, init_log, write_to_log
+from load_model import build_model
    
 def set_random_seed(seed):
     torch.manual_seed(seed)
@@ -21,31 +22,35 @@ def uncertainty_loss(x, y):
     prediction = x[:,:,:,0:1]
     variance = x[:,:,:,1:2]
     y = y.permute(0,2,3,1)
-    return torch.mean(0.5/variance*torch.square(y-prediction)+0.5*torch.log(variance))
+    mse = torch.square(y - prediction)
+    return torch.mean(0.5 * torch.exp(-variance) * mse + 0.5 * variance), torch.mean(mse)
 
     
 def train_epoch(args, model, optimizer, dataloader, i, device):
     for i, batch in enumerate(dataloader):
         batch = BatchedImages(batch.rgb.to(device), batch.label.to(device))
-        loss = uncertainty_loss(model(batch), batch.label)
+        loss, mse = uncertainty_loss(model(batch), batch.label)
         
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
-        write_to_log(f"TRAIN LOSS: {loss.item()}")
-        
-        # log the loss
+  
+        if i % args.print_every == 0:
+            write_to_log(f"TRAIN LOSS: {loss.item()}")
+            write_to_log(f"TRAIN MSE: {mse.item()}")
     
 def eval_epoch(args, model, dataloader, i, device):
     losses = []
+    mses = []
     for i, batch in enumerate(dataloader):
         with torch.no_grad():
             batch = BatchedImages(batch.rgb.to(device), batch.label.to(device))
-            loss = uncertainty_loss(model(batch), batch.label)
+            loss, mse = uncertainty_loss(model(batch), batch.label)
             losses.append(loss)
+            mses.append(mse)
 
     write_to_log(f"VAL LOSS: {torch.mean(torch.stack(losses))}")
+    write_to_log(f"VAL MSE: {torch.mean(torch.stack(mses))}")
 
 def collate_fn(labeled_imgs: list[LabeledImage]):
     batched_imgs = BatchedImages(
@@ -54,9 +59,10 @@ def collate_fn(labeled_imgs: list[LabeledImage]):
     return batched_imgs
 
 def create_dataloader(args):
-    dataset = NYUv2Dataset(mat_file_path='nyu_depth_v2_labeled.mat')
-    train_dataloader = DataLoader(dataset, batch_size=args.bs, shuffle=True, collate_fn=collate_fn, num_workers=args.num_workers)
-    val_dataloader = DataLoader(dataset, batch_size=args.bs, shuffle=False, collate_fn=collate_fn, num_workers=args.num_workers)
+    train_dataset = NYUv2Dataset(mat_file_path='nyu_depth_v2_labeled.mat', splits_path='nyuv2_splits.mat', mode='train')
+    test_dataset = NYUv2Dataset(mat_file_path='nyu_depth_v2_labeled.mat', splits_path='nyuv2_splits.mat', mode='test')
+    train_dataloader = DataLoader(train_dataset, batch_size=args.bs, shuffle=True, collate_fn=collate_fn, num_workers=args.num_workers)
+    val_dataloader = DataLoader(test_dataset, batch_size=args.bs, shuffle=False, collate_fn=collate_fn, num_workers=args.num_workers)
     return train_dataloader, val_dataloader
 
 def run_training(args):
@@ -88,8 +94,10 @@ def run_training(args):
         f.write('\n')
         f.write(get_git_revision_short_hash())
 
-    model = DepthAndUncertaintyModel()
-    model = model.to(device)
+    model, errors = build_model(args, device)
+
+    write_to_log(str(errors))
+
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     train_dataloader, val_dataloader = create_dataloader(args)
     

@@ -2,7 +2,7 @@
 #SBATCH --job-name=train
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --time=01:00:00
+#SBATCH --time=06:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:t4:1
 #SBATCH --cpus-per-task=12
@@ -19,7 +19,7 @@ source activate cs4100
 echo 'btw, gpu:t4:1 seems to work if the v100-sxm2 is not available'
 
 base_dir=./log
-exp_name=exp_bs_4
+exp_name=epoch_40_stable
 folder=${base_dir}/${exp_name}
 mkdir $folder
 

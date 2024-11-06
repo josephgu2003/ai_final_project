@@ -2,9 +2,10 @@ from dataclasses import dataclass
 import h5py
 import torch
 from torch.utils.data import Dataset, DataLoader
-from torchvision.transforms import ToTensor
+from torchvision.transforms import ToTensor, RandomHorizontalFlip, Compose
 from PIL import Image
 import numpy as np
+import scipy.io as io
 
 @dataclass
 class BatchedImages:
@@ -18,27 +19,36 @@ class LabeledImage:
     filename: str
 
 class NYUv2Dataset(Dataset):
-    def __init__(self, mat_file_path: str, transform=None):
+    def __init__(self, mat_file_path: str, splits_path: str, mode: str = 'train'):
         self.data = h5py.File(mat_file_path, 'r')
+        
+        if mode is 'train':
+            indices = io.loadmat(splits_path)['trainNdxs']
+            self.transform = Compose([RandomHorizontalFlip(p=0.5), ToTensor()])
+        elif mode is 'test':
+            indices = io.loadmat(splits_path)['testNdxs']
+            self.transform = Compose([ToTensor()])
+        else: 
+            raise ValueError()
+        indices = indices.flatten() - 1
 
-        self.rgb_images = self.data['images']
-        self.labels = self.data['depths']
-
-        self.transform = transform
+        self.rgb_images = np.array(self.data['images'])[indices]
+        self.labels = np.array(self.data['depths'])[indices]
+        
 
     def __len__(self):
         return self.rgb_images.shape[0]
 
     def __getitem__(self, idx):
-        rgb_image = np.array(self.rgb_images[idx])
-        label = np.array(self.labels[idx])
+        rgb_image = self.rgb_images[idx]
+        label = self.labels[idx]
 
         rgb_image = Image.fromarray(
             np.uint8(rgb_image.transpose(1, 2, 0)))
         label = Image.fromarray(np.float32(label))
 
-        rgb_tensor = ToTensor()(rgb_image)  # Shape: (3, H, W)
-        label_tensor = ToTensor()(label)  # Shape: (1, H, W)
+        rgb_tensor = self.transform(rgb_image)  # Shape: (3, H, W)
+        label_tensor = self.transform(label)  # Shape: (1, H, W)
 
         return LabeledImage(
             rgb=rgb_tensor,
