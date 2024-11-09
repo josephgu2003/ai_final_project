@@ -22,10 +22,10 @@ class NYUv2Dataset(Dataset):
     def __init__(self, mat_file_path: str, splits_path: str, mode: str = 'train'):
         self.data = h5py.File(mat_file_path, 'r')
         
-        if mode is 'train':
+        if mode == 'train':
             indices = io.loadmat(splits_path)['trainNdxs']
             self.transform = Compose([RandomHorizontalFlip(p=0.5), ToTensor()])
-        elif mode is 'test':
+        elif mode == 'test':
             indices = io.loadmat(splits_path)['testNdxs']
             self.transform = Compose([ToTensor()])
         else: 

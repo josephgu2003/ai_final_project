@@ -20,4 +20,4 @@ conda create -n cs4100 python=3.12
 source activate cs4100
 
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-pip install timm configargparse h5py
+pip install timm configargparse h5py scipy
