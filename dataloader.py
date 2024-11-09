@@ -51,8 +51,8 @@ class NYUv2Dataset(Dataset):
         label_tensor = self.transform(label)  # Shape: (1, H, W)
 
         return LabeledImage(
-            rgb=rgb_tensor,
-            label=label_tensor,
+            rgb=rgb_tensor.permute(0, 2, 1),
+            label=label_tensor.permute(0, 2, 1),
             filename=f"image_{idx}.png"
         )
 
