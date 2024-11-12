@@ -25,8 +25,8 @@ class DepthAndUncertaintyModel(torch.nn.Module):
         BACKBONE_OUT_DEPTH = 768 # Length of per-pixel information vector
         BACKBONE_OUT_SIZE = (60,80) # Size of image at highest resolution
         self.decoder_layer_depths = np.linspace(BACKBONE_OUT_DEPTH,2, num=DECODER_LAYER_COUNT+1).round().astype(int).tolist()
-        self.layer_one, self.layer_two, *self.decoder_linear_layers = [torch.nn.Linear(self.decoder_layer_depths[i],self.decoder_layer_depths[i+1]) for i in range(DECODER_LAYER_COUNT)]
-        self.decode_interp_sizes = np.linspace(BACKBONE_OUT_SIZE, IMG_SIZE, len(self.decoder_linear_layers)).round().astype(int).tolist()
+        self.decoder_layers = torch.nn.ModuleList([torch.nn.Linear(self.decoder_layer_depths[i],self.decoder_layer_depths[i+1]) for i in range(DECODER_LAYER_COUNT)])
+        self.decode_interp_sizes = np.linspace(BACKBONE_OUT_SIZE, IMG_SIZE, len(self.decoder_layers)-2).round().astype(int).tolist()
     
     def apply_linear(self, linear, x):
         return linear(x.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
@@ -37,7 +37,7 @@ class DepthAndUncertaintyModel(torch.nn.Module):
         # We gradually scale up from the lowest resolution image, feeding in information from the other sizes as we go.
         x = out[-1] # torch.Size([16, 768, 20, 15])
 
-        x = F.relu(self.apply_linear(self.layer_one, x))
+        x = F.relu(self.apply_linear(self.decoder_layers[0], x))
 
         x= F.interpolate(x, mode="bilinear", size=(30, 40))
 
@@ -48,7 +48,7 @@ class DepthAndUncertaintyModel(torch.nn.Module):
 
         x += out_shell
 
-        x = F.relu(self.apply_linear(self.layer_two, x))
+        x = F.relu(self.apply_linear(self.decoder_layers[1], x))
 
         x= F.interpolate(x, mode="bilinear", size=(60, 80))
 
@@ -61,8 +61,8 @@ class DepthAndUncertaintyModel(torch.nn.Module):
 
         # We have significantly more scaling up to do, for which we have a simple neural network.
 
-        for i in range(len(self.decoder_linear_layers)):
-            x = F.relu(self.apply_linear(self.decoder_linear_layers[i], x))
+        for i,l in enumerate(self.decoder_layers[2:]):
+            x = F.relu(self.apply_linear(l, x))
             x = F.interpolate(x, mode="bilinear", size=self.decode_interp_sizes[i])
     
         return x.permute(0, 2, 3, 1)
