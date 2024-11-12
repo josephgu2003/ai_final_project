@@ -28,6 +28,9 @@ def uncertainty_loss(x, y):
 
     
 def train_epoch(args, model, optimizer, dataloader, i, device):
+    losses = []
+    mses = []
+
     for i, batch in enumerate(dataloader):
         batch = BatchedImages(batch.rgb.to(device), batch.label.to(device))
         loss, mse = uncertainty_loss(model(batch), batch.label)
@@ -35,11 +38,13 @@ def train_epoch(args, model, optimizer, dataloader, i, device):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-  
-        if i % args.print_every == 0:
-            write_to_log(f"TRAIN LOSS: {loss.item()}")
-            write_to_log(f"TRAIN MSE: {mse.item()}")
-   
+        
+        losses.append(loss)
+        mses.append(mse)
+    
+    write_to_log(f"TRAIN LOSS: {torch.mean(torch.stack(losses))}")
+    write_to_log(f"TRAIN MSE: {torch.mean(torch.stack(mses))}")
+
 def eval_epoch(args, model, dataloader, i, device, logfolder):
     losses = []
     mses = []
