@@ -24,7 +24,7 @@ class NYUv2Dataset(Dataset):
         
         if mode == 'train':
             indices = io.loadmat(splits_path)['trainNdxs']
-            self.transform = Compose([RandomHorizontalFlip(p=0.5), ToTensor()])
+            self.transform = Compose([ToTensor()])
         elif mode == 'test':
             indices = io.loadmat(splits_path)['testNdxs']
             self.transform = Compose([ToTensor()])
