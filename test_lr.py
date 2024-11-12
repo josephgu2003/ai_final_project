@@ -8,7 +8,7 @@ import yaml
 from logger import get_git_revision_short_hash, get_git_status, get_git_diff, init_log, write_to_log
 from load_model import build_model
 import torchvision 
- 
+from torch.optim.lr_scheduler import LinearLR, SequentialLR, CosineAnnealingLR
 def set_random_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
@@ -27,7 +27,7 @@ def uncertainty_loss(x, y):
     return torch.mean(0.5 * torch.exp(-variance) * mse + 0.5 * variance), torch.mean(mse)
 
     
-def train_epoch(args, model, optimizer, dataloader, i, device):
+def train_epoch(args, model, optimizer, dataloader, i, device, scheduler):
     losses = []
     mses = []
 
@@ -38,13 +38,14 @@ def train_epoch(args, model, optimizer, dataloader, i, device):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        
+  
         losses.append(loss)
         mses.append(mse)
-    
-    write_to_log(f"TRAIN LOSS: {torch.mean(torch.stack(losses))}")
-    write_to_log(f"TRAIN MSE: {torch.mean(torch.stack(mses))}")
+        scheduler.step()
 
+    write_to_log(f"MEAN TRAIN LOSS: {torch.mean(torch.stack(losses))}")
+    write_to_log(f"MEAN TRAIN MSE: {torch.mean(torch.stack(mses))}")
+   
 def eval_epoch(args, model, dataloader, i, device, logfolder):
     losses = []
     mses = []
@@ -56,7 +57,7 @@ def eval_epoch(args, model, dataloader, i, device, logfolder):
             losses.append(loss)
             mses.append(mse)
     
-            if i % 50 == 0:
+            if (i * args.bs) % 5 == 0:
                 pred = preds[0].permute(2, 0, 1).cpu()
                 var = torch.exp(pred[1:2, :, :])
                 var = (var * 50).to(torch.uint8) 
@@ -90,51 +91,21 @@ def create_dataloader(args):
     return train_dataloader, val_dataloader
 
 def run_training(args):
-    set_random_seed(args.seed)
-    
-
-    logfolder = os.path.join(args.base_dir, args.exp_name)
-
-    # init log file
-    os.makedirs(logfolder, exist_ok=True)
-   
-    init_log(os.path.join(logfolder, 'log.txt'))
-
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    write_to_log(str(device))
-    args_dict = vars(args)
-
-    with open(os.path.join(logfolder, 'saved_config.yaml'), 'w') as f:
-        yaml.dump(args_dict, f)
-    
-    with open(os.path.join(logfolder, 'git_info.txt'), 'w') as f:
-        f.write(get_git_status())
-        f.write('\n')
-        f.write('\n')
-        f.write('\n')
-        f.write(get_git_diff())
-        f.write('\n')
-        f.write('\n')
-        f.write('\n')
-        f.write(get_git_revision_short_hash())
-
-    model, errors = build_model(args, device)
-
-    write_to_log(str(errors))
+    model = torch.nn.Linear(1, 1)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    train_dataloader, val_dataloader = create_dataloader(args)
-    
+
+    it_per_epoch = 100
+
+    scheduler1 = LinearLR(optimizer, start_factor=0.1, total_iters=args.epochs * it_per_epoch // 10)
+    scheduler2 = CosineAnnealingLR(optimizer, args.epochs * it_per_epoch // 10 * 9, 0.01)
+    scheduler = SequentialLR(optimizer, schedulers=[scheduler1, scheduler2], milestones=[args.epochs * it_per_epoch // 10])
+
     for i in range(args.epochs + 1):
-        write_to_log(f"TRAIN EPOCH {i}:")
-        train_epoch(args, model, optimizer, train_dataloader, i, device)
-        write_to_log(f"VAL EPOCH {i}:")
-        eval_epoch(args, model, val_dataloader, i, device, logfolder)
-        write_to_log("Saving model to output dir!")   
-        ckpt = {'args': args, 'state_dict': model.state_dict(), 'epoch': i}
-        torch.save(ckpt, os.path.join(logfolder, 'last_model.pth')) 
+        for j in range(it_per_epoch):
+            scheduler.step()
+        print(f"Epoch {i} {optimizer.param_groups[0]['lr']}")
     
-    write_to_log("Done!")
      
 if __name__ == '__main__':
     args = config_parser()

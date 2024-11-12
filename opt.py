@@ -6,7 +6,7 @@ def config_parser(cmd=None):
                         help='config file path')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--lr', type=float, default=0.0001)
-    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--epochs', type=int, default=150)
     parser.add_argument('--bs', type=int, default=4)
     parser.add_argument('--base_dir', type=str, default='./log')
     parser.add_argument('--exp_name', type=str, default='an_experiment')
