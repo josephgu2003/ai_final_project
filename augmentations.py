@@ -10,11 +10,11 @@ class Augmentations:
     grayscale = T.RandomGrayscale
 
 DEFAULT_TRANSFORMS = [
-    T.RandomErasing(0.6),
-    T.RandomAffine(30,(.1,.1)),
+    T.RandomAffine(30,(.1,.1), (1, 1.5)),
     T.RandomChannelPermutation(),
     T.RandomHorizontalFlip(0.5),
-    T.RandomGrayscale(0.2)
+    T.RandomGrayscale(0.2),
+    T.RandomErasing(0.6),
 ]
 
 def augment(image, label, transforms = DEFAULT_TRANSFORMS):
@@ -32,9 +32,9 @@ if __name__ == "__main__":
         T.RandomAffine(10,(.1,.1)),
         T.RandomChannelPermutation(),
         T.RandomHorizontalFlip(1),
-        T.RandomGrayscale(0.3)
+        T.RandomGrayscale(0.3),
     ]
-    img, label = augment(img, label, transforms)
+    img, label = augment(img, label)#, transforms)
     img.save('tmp.jpg')
     label.save('tmp2.jpg')
 
