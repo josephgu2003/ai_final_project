@@ -7,6 +7,8 @@ from PIL import Image
 import numpy as np
 import scipy.io as io
 
+from augmentations import augment
+
 @dataclass
 class BatchedImages:
     rgb: torch.tensor #b 3 h w
@@ -22,10 +24,10 @@ class NYUv2Dataset(Dataset):
     def __init__(self, mat_file_path: str, splits_path: str, mode: str = 'train'):
         self.data = h5py.File(mat_file_path, 'r')
         
-        if mode is 'train':
+        if mode == 'train':
             indices = io.loadmat(splits_path)['trainNdxs']
             self.transform = Compose([RandomHorizontalFlip(p=0.5), ToTensor()])
-        elif mode is 'test':
+        elif mode == 'test':
             indices = io.loadmat(splits_path)['testNdxs']
             self.transform = Compose([ToTensor()])
         else: 
@@ -46,6 +48,8 @@ class NYUv2Dataset(Dataset):
         rgb_image = Image.fromarray(
             np.uint8(rgb_image.transpose(1, 2, 0)))
         label = Image.fromarray(np.float32(label))
+
+        rgb_image, label = augment(rgb_image, label)
 
         rgb_tensor = self.transform(rgb_image)  # Shape: (3, H, W)
         label_tensor = self.transform(label)  # Shape: (1, H, W)
