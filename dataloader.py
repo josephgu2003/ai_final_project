@@ -6,6 +6,7 @@ from torchvision.transforms import ToTensor, RandomHorizontalFlip, Compose
 from PIL import Image
 import numpy as np
 import scipy.io as io
+from datetime import datetime
 
 from augmentations import augment
 
@@ -36,6 +37,7 @@ class NYUv2Dataset(Dataset):
 
         self.rgb_images = np.array(self.data['images'])[indices]
         self.labels = np.array(self.data['depths'])[indices]
+        self.mode = mode
         
 
     def __len__(self):
@@ -49,7 +51,18 @@ class NYUv2Dataset(Dataset):
             np.uint8(rgb_image.transpose(1, 2, 0)))
         label = Image.fromarray(np.float32(label))
 
-        rgb_image, label = augment(rgb_image, label)
+        if self.mode == 'train':
+            rgb_image, label = augment(rgb_image, label)
+        # if self.mode == 'train':
+        #     rgb_image.convert("RGB").save(f"debug_image{idx}_{datetime.now()}.jpg")
+        #     l_as_arr = np.array(label.convert("L"))
+        #     l_as_arr = np.divide(l_as_arr, np.max(l_as_arr))
+        #     Image.fromarray(l_as_arr * 255).convert("L").save(f"debug_{idx}_{datetime.now()}.jpg")
+        #     rgb_image, label = augment(rgb_image, label)
+        #     l_as_arr = np.array(label.convert("L"))
+        #     l_as_arr = np.divide(l_as_arr, np.max(l_as_arr))
+        #     Image.fromarray(l_as_arr * 255).convert("L").save(f"debug_post{idx}_{datetime.now()}.jpg")
+        #     rgb_image.convert("RGB").save(f"debug_image_post{idx}_{datetime.now()}.jpg")
 
         rgb_tensor = self.transform(rgb_image)  # Shape: (3, H, W)
         label_tensor = self.transform(label)  # Shape: (1, H, W)
