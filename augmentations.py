@@ -1,39 +1,40 @@
-"""
-A collection of functions which:
-    Returns the image and label flipped horizontally with probability p
-    :param image: 3 x H x W
-    :param label: 1 x H x W
-    :return: (3 x H x W, 1 x H x W)
-
-    Also contains a compose function for composing them
-"""
-import torch
 import torchvision.transforms.v2 as T
-from PIL.Image import Image
-from typing import Callable
-from random import random
+import PIL
 
-def horizontal_flip(p):
-    res = T.RandomHorizontalFlip(p)
-    return res, res
+class Augmentations:
+    "Re-Exports some augmentations we are using"
+    cutout = T.RandomErasing
+    translate_and_rotate = T.RandomAffine
+    channel_swap = T.RandomChannelPermutation
+    flip = T.RandomHorizontalFlip
+    grayscale = T.RandomGrayscale
 
-def channel_shift(p):
-    return (T.RandomChannelPermutation() if random() < p else T.Identity()), T.Identity()
+DEFAULT_TRANSFORMS = [
+    T.RandomErasing(0.6),
+    T.RandomAffine(30,(.1,.1)),
+    T.RandomChannelPermutation(),
+    T.RandomHorizontalFlip(0.5),
+    T.RandomGrayscale(0.2)
+]
 
-def cutout(p):
-    res = T.Compose(T.PILToTensor(), T.RandomErasing(p), T.ToPILImage())
-    return res, res
+def augment(image, label, transforms = DEFAULT_TRANSFORMS):
+    """Will apply the probabilistic transforms to the image and label, guaranteeing that the same things are applied to both, and accepting and returning the label with only one channel for the depth"""
+    label = label.convert("RGB") # Need to have same number of channels for some transforms 
+    image, label = T.Compose(transforms)(image, label)
+    return image, label.convert("L") # Convert back to "grayscale" (just a depth channel)
 
-def affine(max_angle, max_translate_pct, fill_color):
-    res = T.RandomAffine(degrees=max_angle, translate=(max_translate_pct,max_translate_pct), fill=fill_color)
-    return res, res
 
-def grayscale(p):
-    return T.RandomGrayscale(p), T.Identity()
-
-def compose(transforms: Callable[[Image, Image],tuple[torch.Tensor,torch.Tensor]]):
-    img_t, label_t = map(T.Compose, zip(transforms))
-    def res(img, label):
-        return img_t(img), label_t(label)
-    return res
+if __name__ == "__main__":
+    img = PIL.Image.open("sample.jpg")
+    label = img.convert("L")
+    transforms = [
+        T.RandomErasing(1),
+        T.RandomAffine(10,(.1,.1)),
+        T.RandomChannelPermutation(),
+        T.RandomHorizontalFlip(1),
+        T.RandomGrayscale(0.3)
+    ]
+    img, label = augment(img, label, transforms)
+    img.save('tmp.jpg')
+    label.save('tmp2.jpg')
 
