@@ -1,6 +1,6 @@
 import torch
 from dataloader import BatchedImages
-from swin_transformer import SwinTransformer
+from swin_transformer import SwinTransformer, SwinTransformerBlock
 from constants import IMG_SIZE
 
 import torch.nn.functional as F
@@ -21,6 +21,12 @@ class DepthAndUncertaintyModel(torch.nn.Module):
 
         )
         self.layer_one = torch.nn.Linear(768,384)
+
+        # window size 20 means it is like a full attention layer
+        self.attn = SwinTransformerBlock(dim=384, num_heads=6, window_size=20, attn_drop=0.3) # will accept a [384, 20, 15] input after reshaping
+        self.attn.H = 15
+        self.attn.W = 20
+
         self.layer_two = torch.nn.Linear(384,192)
         self.layer_three = torch.nn.Linear(192,2)
     
@@ -31,6 +37,8 @@ class DepthAndUncertaintyModel(torch.nn.Module):
         x = out[-1] # torch.Size([16, 768, 20, 15])
 
         x = F.relu(self.apply_linear(self.layer_one, x))
+
+        x = self.attn(x.flatten(-2).permute(0, 2, 1), mask_matrix=None).permute(0, 2, 1).reshape(x.shape)
 
         x= torch.nn.functional.interpolate(x, mode="bilinear", size=(30, 40))
 
