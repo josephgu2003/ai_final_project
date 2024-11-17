@@ -56,7 +56,7 @@ def eval_epoch(args, model, dataloader, i, device, logfolder):
             losses.append(loss)
             mses.append(mse)
     
-            if i % 50 == 0:
+            if True:
                 pred = preds[0].permute(2, 0, 1).cpu()
                 var = torch.exp(pred[1:2, :, :])
                 var = (var * 50).to(torch.uint8) 
