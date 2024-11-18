@@ -1,0 +1,9 @@
+*.out 
+**/__pycache__/**
+.vscode
+.idea
+*.mat
+log
+models
+slurm*
+*.pth

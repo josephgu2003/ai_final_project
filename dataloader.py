@@ -1,23 +1,64 @@
 from dataclasses import dataclass
+import h5py
 import torch
+from torch.utils.data import Dataset, DataLoader
+from torchvision.transforms import ToTensor, RandomHorizontalFlip, Compose
+from PIL import Image
+import numpy as np
+import scipy.io as io
 
-
-@dataclass 
+@dataclass
 class BatchedImages:
     rgb: torch.tensor #b 3 h w
     label: torch.tensor #b 1 h w
 
-@dataclass 
+@dataclass
 class LabeledImage:
     rgb: torch.tensor #3 h w
     label: torch.tensor #1 h w
     filename: str
 
-def collate_fn(data: list[LabeledImage]):
-    pass
+class NYUv2Dataset(Dataset):
+    def __init__(self, mat_file_path: str, splits_path: str, mode: str = 'train'):
+        self.data = h5py.File(mat_file_path, 'r')
+        
+        if mode == 'train':
+            indices = io.loadmat(splits_path)['trainNdxs']
+            self.transform = Compose([ToTensor()])
+        elif mode == 'test':
+            indices = io.loadmat(splits_path)['testNdxs']
+            self.transform = Compose([ToTensor()])
+        else: 
+            raise ValueError()
+        indices = indices.flatten() - 1
 
-#https://paperswithcode.com/datasets?task=depth-estimation
+        self.rgb_images = np.array(self.data['images'])[indices]
+        self.labels = np.array(self.data['depths'])[indices]
+        
 
-# KITTI
-# NYUv2
-# Matterport
+    def __len__(self):
+        return self.rgb_images.shape[0]
+
+    def __getitem__(self, idx):
+        rgb_image = self.rgb_images[idx]
+        label = self.labels[idx]
+
+        rgb_image = Image.fromarray(
+            np.uint8(rgb_image.transpose(1, 2, 0)))
+        label = Image.fromarray(np.float32(label))
+
+        rgb_tensor = self.transform(rgb_image)  # Shape: (3, H, W)
+        label_tensor = self.transform(label)  # Shape: (1, H, W)
+
+        return LabeledImage(
+            rgb=rgb_tensor.permute(0, 2, 1),
+            label=label_tensor.permute(0, 2, 1),
+            filename=f"image_{idx}.png"
+        )
+
+def collate_fn(labeled_imgs: list[LabeledImage]):
+    batched_imgs = BatchedImages(
+        rgb=torch.stack([labeled_img.rgb for labeled_img in labeled_imgs]),
+        label=torch.stack([labeled_img.label for labeled_img in labeled_imgs])
+    )
+    return batched_imgs
