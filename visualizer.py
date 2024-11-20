@@ -79,7 +79,7 @@ def generate_visuals(args, model, dataloader, i, device, logfolder):
                 axs[5].set_title('Depth Edges')
                 axs[5].axis('off')
 
-                save_path = os.path.join(logfolder, f"edge_visuals/visuals_epoch_{i}_batch_{idx}.png")
+                save_path = os.path.join(logfolder, f"edge_visuals_new/visuals_epoch_{i}_batch_{idx}.png")
                 plt.savefig(save_path)
                 plt.close(fig)
 
