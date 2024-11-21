@@ -47,7 +47,10 @@ class ConvDecoderBlock(nn.Module):
         self.act = act()
         
     def forward(self, x, res=None):
-        x = self.conv(x + res if res else x)
+        if res is not None:
+            x = x + res
+
+        x = self.conv(x)
         x = self.act(x)
         return F.interpolate(x, mode="bilinear", size=(self.out_h, self.out_w))
         
