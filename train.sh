@@ -19,8 +19,8 @@ source activate cs4100
 echo 'btw, gpu:t4:1 seems to work if the v100-sxm2 is not available'
 
 base_dir=./log
-exp_name=epoch_40_stable
+exp_name=default
 folder=${base_dir}/${exp_name}
 mkdir $folder
 
-python -u train.py --base_dir $base_dir --exp_name $exp_name --bs 4 | tee $folder/log_stdout.txt # use this to log extra information not handled otherwise 
+python -u train.py --base_dir $base_dir --exp_name $exp_name | tee $folder/log_stdout.txt # use this to log extra information not handled otherwise 
