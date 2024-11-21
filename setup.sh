@@ -21,3 +21,4 @@ source activate cs4100
 
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 pip install timm configargparse h5py scipy
+pip install matplotlib
