@@ -13,14 +13,7 @@ def compute_depth_edges(depth):
     edges = (edges / edges.max() * 255).astype(np.uint8)  # Normalize
     return edges
 
-def uncertainty_loss(x, y):
-    prediction = x[:,:,:,0:1]
-    variance = x[:,:,:,1:2]
-    y = y.permute(0,2,3,1)
-    mse = torch.square(y - prediction)
-    return torch.mean(0.5 * torch.exp(-variance) * mse + 0.5 * variance), torch.mean(mse)
-
-def generate_visuals(args, model, dataloader, i, device, logfolder):
+def generate_visuals(args, model, dataloader, i, device, logfolder, uncertainty_loss):
     losses = []
     mses = []
     for idx, batch in enumerate(dataloader):
@@ -52,7 +45,7 @@ def generate_visuals(args, model, dataloader, i, device, logfolder):
                 # Normalize ground truth for separate visualization
                 gt_norm = (gt / np.max(gt)) * 255
 
-                fig, axs = plt.subplots(2, 3, figsize=(30, 10))
+                fig, axs = plt.subplots(1, 5, figsize=(30, 10))
                 axs = axs.ravel()
 
                 axs[0].imshow(rgb)
@@ -74,10 +67,6 @@ def generate_visuals(args, model, dataloader, i, device, logfolder):
                 axs[4].imshow(combined_visual)
                 axs[4].set_title('Depth + Uncertainty')
                 axs[4].axis('off')
-
-                axs[5].imshow(pred_edges_norm, cmap='gray')
-                axs[5].set_title('Depth Edges')
-                axs[5].axis('off')
 
                 save_path = os.path.join(logfolder, f"edge_visuals_new/visuals_epoch_{i}_batch_{idx}.png")
                 plt.savefig(save_path)

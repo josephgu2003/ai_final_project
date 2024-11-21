@@ -8,7 +8,7 @@ import yaml
 from logger import get_git_revision_short_hash, get_git_status, get_git_diff, init_log, write_to_log
 from load_model import build_model
 import torchvision.transforms as T
-from visualizer import generate_visuals, uncertainty_loss
+from visualizer import generate_visuals
  
 def set_random_seed(seed):
     torch.manual_seed(seed)
@@ -39,15 +39,17 @@ def train_epoch(args, model, optimizer, dataloader, i, device):
     write_to_log(f"TRAIN MSE: {torch.mean(torch.stack(mses))}")
 
 def collate_fn(labeled_imgs: list[LabeledImage]):
-    color_jitter = T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1)
-    rgb_transformed = []
-    for labeled_img in labeled_imgs:
-        rgb_transformed.append(color_jitter(labeled_img.rgb))
     batched_imgs = BatchedImages(
-        rgb=torch.stack(rgb_transformed),
-        label=torch.stack([labeled_img.label for labeled_img in labeled_imgs])
-    )
+    rgb=torch.stack([labeled_img.rgb for labeled_img in labeled_imgs]),
+    label=torch.stack([labeled_img.label for labeled_img in labeled_imgs]))
     return batched_imgs
+
+def uncertainty_loss(x, y):
+    prediction = x[:,:,:,0:1]
+    variance = x[:,:,:,1:2]
+    y = y.permute(0,2,3,1)
+    mse = torch.square(y - prediction)
+    return torch.mean(0.5 * torch.exp(-variance) * mse + 0.5 * variance), torch.mean(mse)
 
 def create_dataloader(args):
     train_dataset = NYUv2Dataset(mat_file_path='nyu_depth_v2_labeled.mat', splits_path='nyuv2_splits.mat', mode='train')
@@ -96,7 +98,7 @@ def run_training(args):
         write_to_log(f"TRAIN EPOCH {i}:")
         train_epoch(args, model, optimizer, train_dataloader, i, device)
         write_to_log(f"VAL EPOCH {i}:")
-        generate_visuals(args, model, val_dataloader, i, device, logfolder)
+        generate_visuals(args, model, val_dataloader, i, device, logfolder, uncertainty_loss)
         write_to_log("Saving model to output dir!")   
         ckpt = {'args': args, 'state_dict': model.state_dict(), 'epoch': i}
         torch.save(ckpt, os.path.join(logfolder, 'last_model.pth')) 
