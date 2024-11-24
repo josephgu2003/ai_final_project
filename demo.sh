@@ -1,0 +1,1 @@
+python demo.py models/*.pth khoury_test_image.jpg 
