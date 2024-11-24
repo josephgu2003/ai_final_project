@@ -8,6 +8,7 @@ from pathlib import Path
 from dataloader import BatchedImages
 from load_model import load_model
 from model import DepthAndUncertaintyModel
+import matplotlib.pyplot as plt
 
 def config_parser(cmd=None):
     parser = configargparse.ArgumentParser()
@@ -23,6 +24,17 @@ model, err = load_model(args.checkpoint, DepthAndUncertaintyModel())
 if err is not None:
     print(err, file=sys.stderr)
 out = model(BatchedImages(ToTensor()(Image.open(args.image_file)).unsqueeze(0), None))
-out = out[0].permute(2,0,1).unsqueeze(1).repeat(1,3,1,1)
-ToPILImage()(out[0]).save(f"depth_{args.image_file}")
-ToPILImage()(out[1]).save(f"uncertainty_{args.image_file}")
+out = out[0].permute(2,0,1)
+
+def normalize(im):
+    return (im-torch.min(im))/(torch.max(im)-torch.min(im))
+
+depth = normalize(out[0])
+uncertainty = normalize(out[1])
+
+def saveImage(img, filename):
+    img = plt.get_cmap('plasma')(img.detach().numpy())[:,:,:3] * 255
+    Image.fromarray(torch.tensor(img, dtype=torch.uint8).cpu().numpy()).save(filename)
+
+saveImage(depth, f"depth_{args.image_file}")
+saveImage(uncertainty, f"uncertainty_{args.image_file}")
