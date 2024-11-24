@@ -26,7 +26,7 @@ def train_epoch(args, model, optimizer, dataloader, i, device):
 
     for i, batch in enumerate(dataloader):
         batch = BatchedImages(batch.rgb.to(device), batch.label.to(device))
-        loss, mse = uncertainty_loss(model(batch), batch.label)
+        loss, mse = uncertainty_loss(model(batch)[0], batch.label)
         
         optimizer.zero_grad()
         loss.backward()
@@ -98,7 +98,10 @@ def run_training(args):
         write_to_log(f"TRAIN EPOCH {i}:")
         train_epoch(args, model, optimizer, train_dataloader, i, device)
         write_to_log(f"VAL EPOCH {i}:")
-        generate_visuals(args, model, val_dataloader, i, device, logfolder, uncertainty_loss)
+        
+        if i % args.val_every == 0:
+            generate_visuals(args, model, val_dataloader, i, device, logfolder, uncertainty_loss, args.dropout_samples)
+
         write_to_log("Saving model to output dir!")   
         ckpt = {'args': args, 'state_dict': model.state_dict(), 'epoch': i}
         torch.save(ckpt, os.path.join(logfolder, 'last_model.pth')) 
