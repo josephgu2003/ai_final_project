@@ -24,5 +24,9 @@ if err is not None:
     print(err, file=sys.stderr)
 out = model(BatchedImages(ToTensor()(Image.open(args.image_file)).unsqueeze(0), None))
 out = out[0].permute(2,0,1).unsqueeze(1).repeat(1,3,1,1)
-ToPILImage()(out[0]).save(f"depth_{args.image_file}")
-ToPILImage()(out[1]).save(f"uncertainty_{args.image_file}")
+def normalize(im):
+    return (im-torch.min(im))/(torch.max(im)-torch.min(im))
+depth = normalize(out[0])
+uncertainty = normalize(out[1])
+ToPILImage()(depth).save(f"depth_{args.image_file}")
+ToPILImage()(uncertainty).save(f"uncertainty_{args.image_file}")
