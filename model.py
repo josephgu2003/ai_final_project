@@ -19,7 +19,6 @@ class DepthAndUncertaintyModel(torch.nn.Module):
             drop_path_rate=0.3,
             patch_norm=True,
             use_checkpoint=False
-
         )
         
         self.attn_one = AttnDecoderBlock(768, 384, 30, 40)
@@ -30,7 +29,7 @@ class DepthAndUncertaintyModel(torch.nn.Module):
         self.mc_dropout = MCDropout(p=0.5)
         
     def process(self, x: BatchedImages):
-        out = self.backbone(x.rgb)
+        out, drloc = self.backbone(x.rgb)
         x = out[-1] # torch.Size([16, 768, 20, 15])
         x = self.attn_one(x)
         x = self.mc_dropout(x)
@@ -40,9 +39,12 @@ class DepthAndUncertaintyModel(torch.nn.Module):
         x = self.mc_dropout(x)
         x = self.conv_four(x, out[-4])
     
-        return x.permute(0, 2, 3, 1)
+        return x.permute(0, 2, 3, 1), drloc
     
     def forward(self, x: BatchedImages, samples: int = 1):
+        assert samples == 1 # don't know how to handle multi sample yet 
+        return self.process(x) 
+    
         preds = torch.stack(list([self.process(x) for i in range(samples)]))
         preds_var = torch.var(preds, dim=0)
         preds = torch.mean(preds, dim=0)

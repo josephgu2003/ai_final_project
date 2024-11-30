@@ -1,3 +1,4 @@
+from drloc.losses import cal_selfsupervised_loss
 from dataloader import BatchedImages, LabeledImage, NYUv2Dataset
 from model import DepthAndUncertaintyModel
 from opt import config_parser
@@ -23,20 +24,26 @@ def loss_func(x, y):
 def train_epoch(args, model, optimizer, dataloader, i, device):
     losses = []
     mses = []
+    drlocs = []
 
     for i, batch in enumerate(dataloader):
         batch = BatchedImages(batch.rgb.to(device), batch.label.to(device))
-        loss, mse = uncertainty_loss(model(batch)[0], batch.label)
+        preds, drloc = model(batch)
+        loss, mse = uncertainty_loss(preds, batch.label)
+        
+        drloc_loss = cal_selfsupervised_loss(drloc, lambda_drloc=1.0)
         
         optimizer.zero_grad()
-        loss.backward()
+        (loss + 0.1 * drloc_loss).backward()
         optimizer.step()
         
         losses.append(loss)
         mses.append(mse)
+        drlocs.append(drloc_loss)
     
     write_to_log(f"TRAIN LOSS: {torch.mean(torch.stack(losses))}")
     write_to_log(f"TRAIN MSE: {torch.mean(torch.stack(mses))}")
+    write_to_log(f"TRAIN DRLOC: {torch.mean(torch.stack(drlocs))}")
 
 def collate_fn(labeled_imgs: list[LabeledImage]):
     batched_imgs = BatchedImages(

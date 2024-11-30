@@ -1,3 +1,4 @@
+from drloc.losses import cal_selfsupervised_loss
 from dataloader import BatchedImages
 import torch
 import os
@@ -16,25 +17,28 @@ def compute_depth_edges(depth):
 def generate_visuals(args, model, dataloader, i, device, logfolder, uncertainty_loss, dropout_samples):
     losses = []
     mses = []
+    drlocs = []
     for idx, batch in enumerate(dataloader):
         with torch.no_grad():
             batch = BatchedImages(batch.rgb.to(device), batch.label.to(device))
-            preds, preds_var = model(batch, dropout_samples)
+            preds, drloc = model(batch, 1)
                                 
             loss, mse = uncertainty_loss(preds, batch.label)
             losses.append(loss)
             mses.append(mse)
+            drloc_loss = cal_selfsupervised_loss(drloc, lambda_drloc=1.0)
+            drlocs.append(drloc_loss)
             
             if True: # Change later to generate more images
                 rgb = batch.rgb[0].permute(1, 2, 0).cpu().numpy()  # [C, H, W] -> [H, W, C]
                 gt = batch.label[0, 0].cpu().numpy()  # [1, H, W] -> [H, W]
                 pred = preds[0, :, :, 0].cpu().numpy()  # Prediction mean
                 var = torch.exp(preds[0, :, :, 1]).cpu().numpy()  # Uncertainty/variance
-                dropout_var = preds_var[0, :, :, 0:1].cpu().numpy()
+          #      dropout_var = preds_var[0, :, :, 0:1].cpu().numpy()
 
                 pred_norm = (pred - pred.min()) / (pred.max() - pred.min())
                 var_norm = (var - var.min()) / (var.max() - var.min())
-                dropout_var_norm = (dropout_var - dropout_var.min()) / (dropout_var.max()- dropout_var.min())
+           #     dropout_var_norm = (dropout_var - dropout_var.min()) / (dropout_var.max()- dropout_var.min())
 
                 # Compute edges from predicted depth
                 pred_edges = compute_depth_edges(pred)
@@ -67,9 +71,9 @@ def generate_visuals(args, model, dataloader, i, device, logfolder, uncertainty_
                 axs[3].set_title('Aleatoric Uncertainty')
                 axs[3].axis('off')
                 
-                axs[4].imshow(dropout_var_norm, cmap='hot')
-                axs[4].set_title('Epistemic Uncertainty')
-                axs[4].axis('off')
+         #       axs[4].imshow(dropout_var_norm, cmap='hot')
+          #      axs[4].set_title('Epistemic Uncertainty')
+           #     axs[4].axis('off')
 
              #   axs[4].imshow(combined_visual)
               #  axs[4].set_title('Depth + Uncertainty')
@@ -86,3 +90,4 @@ def generate_visuals(args, model, dataloader, i, device, logfolder, uncertainty_
 
     write_to_log(f"VAL LOSS: {torch.mean(torch.stack(losses))}")
     write_to_log(f"VAL MSE: {torch.mean(torch.stack(mses))}")
+    write_to_log(f"VAL DRLOC: {torch.mean(torch.stack(drlocs))}")

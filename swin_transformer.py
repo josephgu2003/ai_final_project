@@ -5,12 +5,15 @@
 # Written by Ze Liu, Yutong Lin, Yixuan Wei
 # --------------------------------------------------------
 
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.checkpoint as checkpoint
 import numpy as np
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
+
+from drloc.aux_modules import DenseRelativeLoc
 
 # from mmcv_custom import load_checkpoint
 # from mmseg.utils import get_root_logger
@@ -494,7 +497,12 @@ class SwinTransformer(nn.Module):
                  patch_norm=True,
                  out_indices=(0, 1, 2, 3),
                  frozen_stages=-1,
-                 use_checkpoint=False):
+                 use_checkpoint=False,
+                 use_drloc=True,
+                 use_multiscale=True,
+                 drloc_mode='l1',
+                 use_abs=True,
+                 sample_size=32):
         super().__init__()
 
         self.pretrain_img_size = pretrain_img_size
@@ -553,6 +561,27 @@ class SwinTransformer(nn.Module):
             self.add_module(layer_name, layer)
 
         self._freeze_stages()
+        
+        self.use_drloc = use_drloc 
+        self.use_multiscale = use_multiscale 
+        
+        if self.use_drloc:
+            self.drloc = nn.ModuleList()
+            if self.use_multiscale:
+                for i_layer in range(self.num_layers):
+                    self.drloc.append(DenseRelativeLoc(
+                        in_dim=min(int(embed_dim * 2 ** (i_layer+1)), self.num_features[i_layer]), # ???
+                        out_dim=2 if drloc_mode=="l1" else max(img_size // (4 * 2**i_layer), img_size//(4 * 2**(self.num_layers-1))),
+                        sample_size=sample_size,
+                        drloc_mode=drloc_mode,
+                        use_abs=use_abs))
+            else:
+                self.drloc.append(DenseRelativeLoc(
+                    in_dim=self.num_features, 
+                    out_dim=2 if drloc_mode=="l1" else img_size//(4 * 2**(self.num_layers-1)),
+                    sample_size=sample_size,
+                    drloc_mode=drloc_mode,
+                    use_abs=use_abs))
 
     def _freeze_stages(self):
         if self.frozen_stages >= 0:
@@ -622,7 +651,28 @@ class SwinTransformer(nn.Module):
                 out = x_out.view(-1, H, W, self.num_features[i]).permute(0, 3, 1, 2).contiguous()
                 outs.append(out)
 
-        return tuple(outs)
+        drloc_outs = None 
+        
+        # SSUP
+        if self.use_drloc:
+            drloc = []
+            deltaxy = []
+            plz = []
+
+            for idx, x_cur in enumerate(outs):
+          #      x_cur = x_cur.transpose(1, 2) # [B, C, L]
+                B, C, H, W = x_cur.shape
+         #       H = W = int(math.sqrt(HW))
+                feats = x_cur.contiguous() # [B, C, H, W]
+
+                drloc_feats, deltaxy_ = self.drloc[idx](feats)
+                drloc.append(drloc_feats)
+                deltaxy.append(deltaxy_)
+                plz.append(H) # plane size 
+            
+            drloc_outs = {"drloc": drloc, "deltaxy": deltaxy, "plz": plz}
+
+        return tuple(outs), drloc_outs
 
     def train(self, mode=True):
         """Convert the model into training mode while keep layers freezed."""
