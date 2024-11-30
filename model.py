@@ -18,7 +18,8 @@ class DepthAndUncertaintyModel(torch.nn.Module):
             ape=False,
             drop_path_rate=0.3,
             patch_norm=True,
-            use_checkpoint=False
+            use_checkpoint=False,
+            sample_size=128
         )
         
         self.attn_one = AttnDecoderBlock(768, 384, 30, 40)
@@ -26,7 +27,7 @@ class DepthAndUncertaintyModel(torch.nn.Module):
         self.conv_three = ConvDecoderBlock(192, 96, 120, 160)
         self.conv_four = ConvDecoderBlock(96, 2, IMG_SIZE[0], IMG_SIZE[1], act=torch.nn.Identity)
         
-        self.mc_dropout = MCDropout(p=0.5)
+        self.mc_dropout = torch.nn.Identity()
         
     def process(self, x: BatchedImages):
         out, drloc = self.backbone(x.rgb)

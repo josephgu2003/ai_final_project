@@ -499,7 +499,7 @@ class SwinTransformer(nn.Module):
                  frozen_stages=-1,
                  use_checkpoint=False,
                  use_drloc=True,
-                 use_multiscale=True,
+                 use_multiscale=False,
                  drloc_mode='l1',
                  use_abs=True,
                  sample_size=32):
@@ -577,7 +577,7 @@ class SwinTransformer(nn.Module):
                         use_abs=use_abs))
             else:
                 self.drloc.append(DenseRelativeLoc(
-                    in_dim=self.num_features, 
+                    in_dim=self.num_features[-1], 
                     out_dim=2 if drloc_mode=="l1" else img_size//(4 * 2**(self.num_layers-1)),
                     sample_size=sample_size,
                     drloc_mode=drloc_mode,
@@ -659,7 +659,9 @@ class SwinTransformer(nn.Module):
             deltaxy = []
             plz = []
 
-            for idx, x_cur in enumerate(outs):
+            x_cur = outs[-1]
+            idx = -1
+            if True:
           #      x_cur = x_cur.transpose(1, 2) # [B, C, L]
                 B, C, H, W = x_cur.shape
          #       H = W = int(math.sqrt(HW))
