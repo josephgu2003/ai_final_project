@@ -68,6 +68,6 @@ def generate_visuals(batch, preds, preds_var, epoch, idx, logfolder, args):
         if not os.path.exists(save_folder):
             os.mkdir(save_folder)
             
-        save_path = os.path.join(save_folder, f"batch_{idx * batch_size + j}.png")
+        save_path = os.path.join(save_folder, f"test_{idx * batch_size + j}.png")
         plt.savefig(save_path)
         plt.close(fig)
