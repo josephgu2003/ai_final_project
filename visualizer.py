@@ -15,7 +15,7 @@ def compute_depth_edges(depth):
 
 def generate_visuals(batch, preds, preds_var, epoch, idx, logfolder, args):
     batch_size = batch.rgb.size(0)
-    for j in range(batch_size):
+    for j in range(1): # okay so visualizing the entire test set takes too much disk memory
         rgb = batch.rgb[j].permute(1, 2, 0).cpu().numpy()  # [C, H, W] -> [H, W, C]
         gt = batch.label[j, 0].cpu().numpy()  # [1, H, W] -> [H, W]
         pred = preds[j, :, :, 0].cpu().numpy()  # Prediction mean
@@ -36,7 +36,7 @@ def generate_visuals(batch, preds, preds_var, epoch, idx, logfolder, args):
         # Normalize ground truth for separate visualization
         gt_norm = (gt / np.max(gt)) * 255
 
-        fig, axs = plt.subplots(1, 5, figsize=(30, 10))
+        fig, axs = plt.subplots(1, 5, figsize=(30, 5))
         axs = axs.ravel()
 
         axs[0].imshow(rgb)

@@ -70,8 +70,9 @@ def uncertainty_loss(x, y):
     return torch.mean(0.5 * torch.exp(-variance) * mse + 0.5 * variance)
 
 def mse(x, y):
+    prediction = x[:,:,:,0:1]
     y = y.permute(0,2,3,1)
-    return torch.mean(torch.square(x - y))
+    return torch.mean(torch.square(prediction - y))
 
 def create_dataloader(args):
     train_dataset = NYUv2Dataset(mat_file_path='nyu_depth_v2_labeled.mat', splits_path='nyuv2_splits.mat', mode='train')
@@ -116,12 +117,12 @@ def run_training(args):
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     train_dataloader, val_dataloader = create_dataloader(args)
     
-    for i in range(args.epochs + 1):
+    for i in range(1, args.epochs + 1):
         write_to_log(f"TRAIN EPOCH {i}:")
         train_epoch(args, model, optimizer, train_dataloader, i, device, loss_func=uncertainty_loss if args.use_aleatoric else mse)
         write_to_log(f"VAL EPOCH {i}:")
         
-        if i % args.val_every == 0:
+        if (i == 1) or (i % args.val_every == 0):
             eval_epoch(args, model, val_dataloader, i, device, logfolder, args.dropout_samples, i in args.vis_interval,
                        loss_func=uncertainty_loss if args.use_aleatoric else mse)
 
