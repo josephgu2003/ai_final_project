@@ -37,6 +37,24 @@ def train_epoch(args, model, optimizer, dataloader, i, device):
     
     write_to_log(f"TRAIN LOSS: {torch.mean(torch.stack(losses))}")
     write_to_log(f"TRAIN MSE: {torch.mean(torch.stack(mses))}")
+    
+def eval_epoch(args, model, dataloader, epoch, device, logfolder, dropout_samples, visualize):
+    losses = []
+    mses = []
+    for idx, batch in enumerate(dataloader):
+        with torch.no_grad():
+            batch = BatchedImages(batch.rgb.to(device), batch.label.to(device))
+            preds, preds_var = model(batch, dropout_samples)
+                                
+            loss, mse = uncertainty_loss(preds, batch.label)
+            losses.append(loss)
+            mses.append(mse)
+            
+            if visualize:
+                generate_visuals(batch, preds, preds_var, epoch, idx, logfolder)
+            
+    write_to_log(f"VAL LOSS: {torch.mean(torch.stack(losses))}")
+    write_to_log(f"VAL MSE: {torch.mean(torch.stack(mses))}")
 
 def collate_fn(labeled_imgs: list[LabeledImage]):
     batched_imgs = BatchedImages(
@@ -100,7 +118,7 @@ def run_training(args):
         write_to_log(f"VAL EPOCH {i}:")
         
         if i % args.val_every == 0:
-            generate_visuals(args, model, val_dataloader, i, device, logfolder, uncertainty_loss, args.dropout_samples)
+            eval_epoch(args, model, val_dataloader, i, device, logfolder, args.dropout_samples, i in args.vis_interval)
 
         write_to_log("Saving model to output dir!")   
         ckpt = {'args': args, 'state_dict': model.state_dict(), 'epoch': i}

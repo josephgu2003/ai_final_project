@@ -15,6 +15,7 @@ def config_parser(cmd=None):
     parser.add_argument('--print_every', type=int, default=100)
     parser.add_argument('--val_every', type=int, default=5)
     parser.add_argument('--dropout_samples', type=int, default=8)
+    parser.add_argument('--vis_interval', type=int, action="append", default=[0, 19, 49, 99, 149])
 
     if cmd is not None:
         return parser.parse_args(cmd)
