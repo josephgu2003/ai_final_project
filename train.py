@@ -17,28 +17,28 @@ def set_random_seed(seed):
 
     os.environ['PYTHONHASHSEED'] = str(seed)
 
-def loss_func(x, y):
-    return torch.mean(torch.square(x-y))
-    
-def train_epoch(args, model, optimizer, dataloader, i, device):
+def train_epoch(args, model, optimizer, dataloader, i, device, loss_func):
     losses = []
     mses = []
 
     for i, batch in enumerate(dataloader):
         batch = BatchedImages(batch.rgb.to(device), batch.label.to(device))
-        loss, mse = uncertainty_loss(model(batch)[0], batch.label)
+        preds = model(batch)[0]
+        loss = loss_func(preds, batch.label)
         
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         
         losses.append(loss)
-        mses.append(mse)
+        
+        with torch.no_grad():
+            mses.append(mse(preds, batch.label))
     
     write_to_log(f"TRAIN LOSS: {torch.mean(torch.stack(losses))}")
     write_to_log(f"TRAIN MSE: {torch.mean(torch.stack(mses))}")
     
-def eval_epoch(args, model, dataloader, epoch, device, logfolder, dropout_samples, visualize):
+def eval_epoch(args, model, dataloader, epoch, device, logfolder, dropout_samples, visualize, loss_func):
     losses = []
     mses = []
     for idx, batch in enumerate(dataloader):
@@ -46,12 +46,12 @@ def eval_epoch(args, model, dataloader, epoch, device, logfolder, dropout_sample
             batch = BatchedImages(batch.rgb.to(device), batch.label.to(device))
             preds, preds_var = model(batch, dropout_samples)
                                 
-            loss, mse = uncertainty_loss(preds, batch.label)
+            loss = loss_func(preds, batch.label)
             losses.append(loss)
-            mses.append(mse)
+            mses.append(mse(preds, batch.label))
             
             if visualize:
-                generate_visuals(batch, preds, preds_var, epoch, idx, logfolder)
+                generate_visuals(batch, preds, preds_var, epoch, idx, logfolder, args=args,)
             
     write_to_log(f"VAL LOSS: {torch.mean(torch.stack(losses))}")
     write_to_log(f"VAL MSE: {torch.mean(torch.stack(mses))}")
@@ -67,7 +67,11 @@ def uncertainty_loss(x, y):
     variance = x[:,:,:,1:2]
     y = y.permute(0,2,3,1)
     mse = torch.square(y - prediction)
-    return torch.mean(0.5 * torch.exp(-variance) * mse + 0.5 * variance), torch.mean(mse)
+    return torch.mean(0.5 * torch.exp(-variance) * mse + 0.5 * variance)
+
+def mse(x, y):
+    y = y.permute(0,2,3,1)
+    return torch.mean(torch.square(x - y))
 
 def create_dataloader(args):
     train_dataset = NYUv2Dataset(mat_file_path='nyu_depth_v2_labeled.mat', splits_path='nyuv2_splits.mat', mode='train')
@@ -114,11 +118,12 @@ def run_training(args):
     
     for i in range(args.epochs + 1):
         write_to_log(f"TRAIN EPOCH {i}:")
-        train_epoch(args, model, optimizer, train_dataloader, i, device)
+        train_epoch(args, model, optimizer, train_dataloader, i, device, loss_func=uncertainty_loss if args.use_aleatoric else mse)
         write_to_log(f"VAL EPOCH {i}:")
         
         if i % args.val_every == 0:
-            eval_epoch(args, model, val_dataloader, i, device, logfolder, args.dropout_samples, i in args.vis_interval)
+            eval_epoch(args, model, val_dataloader, i, device, logfolder, args.dropout_samples, i in args.vis_interval,
+                       loss_func=uncertainty_loss if args.use_aleatoric else mse)
 
         write_to_log("Saving model to output dir!")   
         ckpt = {'args': args, 'state_dict': model.state_dict(), 'epoch': i}

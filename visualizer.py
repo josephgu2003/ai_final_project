@@ -13,17 +13,15 @@ def compute_depth_edges(depth):
     edges = (edges / edges.max() * 255).astype(np.uint8)  # Normalize
     return edges
 
-def generate_visuals(batch, preds, preds_var, epoch, idx, logfolder):
+def generate_visuals(batch, preds, preds_var, epoch, idx, logfolder, args):
     batch_size = batch.rgb.size(0)
     for j in range(batch_size):
         rgb = batch.rgb[j].permute(1, 2, 0).cpu().numpy()  # [C, H, W] -> [H, W, C]
         gt = batch.label[j, 0].cpu().numpy()  # [1, H, W] -> [H, W]
         pred = preds[j, :, :, 0].cpu().numpy()  # Prediction mean
-        var = torch.exp(preds[j, :, :, 1]).cpu().numpy()  # Uncertainty/variance
         dropout_var = preds_var[j, :, :, 0:1].cpu().numpy()
 
         pred_norm = (pred - pred.min()) / (pred.max() - pred.min())
-        var_norm = (var - var.min()) / (var.max() - var.min())
         dropout_var_norm = (dropout_var - dropout_var.min()) / (dropout_var.max()- dropout_var.min())
 
         # Compute edges from predicted depth
@@ -33,7 +31,7 @@ def generate_visuals(batch, preds, preds_var, epoch, idx, logfolder):
         # Depth and uncertainty combined visualization
         cmap = plt.get_cmap('plasma')
         depth_color = cmap(pred_norm)[:, :, :3]  # Apply colormap, discard alpha
-        combined_visual = depth_color * (1 - var_norm[:, :, None])  # Adjust brightness
+       # combined_visual = depth_color * (1 - var_norm[:, :, None])  # Adjust brightness
 
         # Normalize ground truth for separate visualization
         gt_norm = (gt / np.max(gt)) * 255
@@ -53,13 +51,17 @@ def generate_visuals(batch, preds, preds_var, epoch, idx, logfolder):
         axs[2].set_title('Predicted Depth')
         axs[2].axis('off')
 
-        axs[3].imshow(var_norm, cmap='hot')
-        axs[3].set_title('Aleatoric Uncertainty')
-        axs[3].axis('off')
+        if args.use_aleatoric:
+            var = torch.exp(preds[j, :, :, 1]).cpu().numpy()  # Uncertainty/variance
+            var_norm = (var - var.min()) / (var.max() - var.min())
+            axs[3].imshow(var_norm, cmap='hot')
+            axs[3].set_title('Aleatoric Uncertainty')
+            axs[3].axis('off')
         
-        axs[4].imshow(dropout_var_norm, cmap='hot')
-        axs[4].set_title('Epistemic Uncertainty')
-        axs[4].axis('off')
+        if args.use_epistemic:
+            axs[4].imshow(dropout_var_norm, cmap='hot')
+            axs[4].set_title('Epistemic Uncertainty')
+            axs[4].axis('off')
         
         save_folder = os.path.join(logfolder, f"visuals_epoch_{epoch}")
         
