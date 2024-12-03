@@ -7,7 +7,7 @@ from constants import IMG_SIZE
 import torch.nn.functional as F
 
 class DepthAndUncertaintyModel(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, args):
         super().__init__()
          # args from https://github.com/SwinTransformer/Swin-Transformer-Semantic-Segmentation/blob/main/configs/swin/upernet_swin_tiny_patch4_window7_512x512_160k_ade20k.py
         self.backbone = SwinTransformer(
@@ -25,9 +25,9 @@ class DepthAndUncertaintyModel(torch.nn.Module):
         self.attn_one = AttnDecoderBlock(768, 384, 30, 40)
         self.conv_two = ConvDecoderBlock(384, 192, 60, 80)
         self.conv_three = ConvDecoderBlock(192, 96, 120, 160)
-        self.conv_four = ConvDecoderBlock(96, 2, IMG_SIZE[0], IMG_SIZE[1], act=torch.nn.Identity)
+        self.conv_four = ConvDecoderBlock(96, 2 if args.use_aleatoric else 1, IMG_SIZE[0], IMG_SIZE[1], act=torch.nn.Identity)
         
-        self.mc_dropout = MCDropout(p=0.5)
+        self.mc_dropout = MCDropout(p=0.5) if args.use_epistemic else torch.nn.Identity()
         
     def process(self, x: BatchedImages):
         out = self.backbone(x.rgb)

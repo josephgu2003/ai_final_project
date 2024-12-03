@@ -18,9 +18,12 @@ export CUDA_VISIBLE_DEVICES=0
 source activate cs4100
 echo 'btw, gpu:t4:1 seems to work if the v100-sxm2 is not available'
 
+aleatoric=1
+epistemic=1
+
 base_dir=./log
-exp_name=default
+exp_name=aleatoric_epistemic_${aleatoric}_${epistemic}
 folder=${base_dir}/${exp_name}
 mkdir $folder
 
-python -u train.py --base_dir $base_dir --exp_name $exp_name | tee $folder/log_stdout.txt # use this to log extra information not handled otherwise 
+python -u train.py --base_dir $base_dir --exp_name $exp_name --use_aleatoric ${aleatoric} --use_epistemic ${epistemic} | tee $folder/log_stdout.txt # use this to log extra information not handled otherwise 
